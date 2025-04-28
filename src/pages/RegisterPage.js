@@ -26,17 +26,18 @@ export const RegisterPage = () => {
       // console.log(form)
       const { email, password, nombre} = form;
      const msg =  await register(nombre, email , password);
-
       if ( msg !== true ) {
         Swal.fire('error', msg,'error');
       }
   }
-
   const todoOk = () => {
-    return ( form.email.length > 0 && form.password.length > 0 && form.nombre > 0)  ? true : false;
+    return (
+      form.email.trim().length > 0 &&
+      form.password.trim().length > 0 &&
+      form.nombre.trim().length > 0
+    );
   }
-
-
+  
 
   return (
     <form

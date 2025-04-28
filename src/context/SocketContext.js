@@ -60,7 +60,6 @@ export const SocketProvider = ({ children }) => {
     // Cargar grupos
     useEffect(() => {
         socket?.on('lista-grupos', (grupos) => {
-            console.log(grupos)
             dispatch({
                 type: types.gruposCargados,
                 payload: grupos

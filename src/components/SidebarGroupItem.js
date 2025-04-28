@@ -37,17 +37,16 @@ export const SidebarGroupItem = ({ grupo }) => {
             const contenido = resp.grupo.contenidoCanvas;
             dispatch({
                 type: types.cargarGrupo,
-                // payload: resp.grupo.contenidoCanvas  // Asegúrate de que esto existe
                 payload: contenido
             });
             
-        // const hasValidContent = resp.grupo.contenidoCanvas &&
-                // Array.isArray(resp.grupo.contenidoCanvas.components);
-            //   if (hasValidContent) {
+        const hasValidContent = resp.grupo.contenidoCanvas &&
+                Array.isArray(resp.grupo.contenidoCanvas.components);
+              if (hasValidContent) {
                 actions.setComponents(contenido.components);
-            //   } else {
-                // actions.setComponents([]);
-            //   }
+              } else {
+                actions.setComponents([]);
+              }
        
             // Unirse al grupo vía socket
             // socket.emit('unirse-grupo', grupo._id);

@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { generateReactCode } from '../utils/codeGenerartor';
+import { generateAngularCode } from '../utils/codeGenerartor';
 import { useCanvasContext } from '../context/CanvasContext';
 import { ChatConext } from '../context/chat/ChatContext';
 import Toolbar from '../components/ui/Toolbar';
@@ -64,7 +64,7 @@ const BuilderContent = () => {
   };
   
   const handleExportCode = () => {
-    console.log(generateReactCode(safeComponents));
+    console.log(generateAngularCode(safeComponents));
     alert('Código exportado a la consola');
   };
   

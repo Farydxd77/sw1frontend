@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { useCanvasContext } from '../../context/CanvasContext';
 import { ChatConext } from '../../context/chat/ChatContext';
 import { types } from '../../types/types';
@@ -10,98 +10,133 @@ const CanvasSync = () => {
   const { actions, components } = useCanvasContext();
   const [lastGrupoActivo, setLastGrupoActivo] = useState(null);
   const { socket } = useContext(SocketContext);
+  const debounceTimerRef = useRef(null);
   
-  // // 1. Cargar canvas del grupo activo
-  // useEffect(() => {
-  //   if (chatState.grupoActivo !== lastGrupoActivo) {
-  //     setLastGrupoActivo(chatState.grupoActivo);
-      
-  //     const cargarCanvasDeGrupo = async () => {
-  //       if (chatState.grupoActivo) {
-  //         try {
-  //           const resp = await fetchConnToken(`grupos/${chatState.grupoActivo}`);
-  //           if (resp.ok && resp.grupo) {
-  //             const hasValidContent = resp.grupo.contenidoCanvas &&
-  //               Array.isArray(resp.grupo.contenidoCanvas.components);
-  //             if (hasValidContent) {
-  //               actions.setComponents(resp.grupo.contenidoCanvas.components);
-  //             } else {
-  //               actions.setComponents([]);
-  //             }
-  //           }
-  //         } catch (error) {
-  //           console.error('Error al cargar el canvas del grupo:', error);
-  //           actions.setComponents([]);
-  //         }
-  //       }
-  //     };
-      
-  //     cargarCanvasDeGrupo();
-  //   }
-  // }, [chatState.grupoActivo, actions, lastGrupoActivo]);
 
-  // 2. Emitir cambios a otros usuarios y guardar en DB automáticamente
-  useEffect(() => {
-    const guardarYEmitirCanvas = async () => {
-      if (socket && chatState.grupoActivo && Array.isArray(components)) {
-        const contenidoCanvas = {
-          components,
-          canvasWidth: 1000,
-          canvasHeight: 2000,
-        };
-
-        // // Emitir a otros usuarios del grupo
-        // socket.emit('canvas:update', {
-        //   groupId: chatState.grupoActivo,
-        //   components,
-        // });
-
-        // Guardar en base de datos
+   // Para cargar el canvas inicial al unirse a un grupo
+   useEffect(() => {
+    const cargarCanvasInicial = async () => {
+      if (chatState.grupoActivo && chatState.grupoActivo !== lastGrupoActivo) {
+        setLastGrupoActivo(chatState.grupoActivo);
+        
         try {
+          // Cargar el canvas del grupo desde el servidor
+          const resp = await fetchConnToken(`grupos/${chatState.grupoActivo}`, {}, 'GET');
+          
+          if (resp.ok && resp.grupo.contenidoCanvas) {
+            // Actualizar el estado del canvas con los datos del servidor
+            actions.setComponents(resp.grupo.contenidoCanvas.components || []);
+          }
+          
+          // Unirse a la sala de socket del grupo
+          if (socket) {
+            socket.emit('join-grupo', chatState.grupoActivo);
+          }
+        } catch (error) {
+          console.error('Error al cargar canvas inicial:', error);
+        }
+      }
+    };
+    
+    cargarCanvasInicial();
+  }, [chatState.grupoActivo, lastGrupoActivo, actions, socket]);
+
+ // Para emitir cambios cuando el canvas cambia
+ useEffect(() => {
+  const emitirCambiosCanvas = () => {
+    if (socket && chatState.grupoActivo && Array.isArray(components)) {
+      // Cancelar cualquier timer pendiente para evitar múltiples emisiones
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      
+      // Emitir cambios en tiempo real a través de socket
+      socket.emit('canvas:update', {
+        groupId: chatState.grupoActivo,
+        components: components
+      });
+      
+      // Programar guardado en la base de datos con un debounce
+      debounceTimerRef.current = setTimeout(async () => {
+        try {
+          const contenidoCanvas = {
+            components,
+            canvasWidth: 1000,
+            canvasHeight: 2000,
+          };
+          
           await fetchConnToken(`grupos/${chatState.grupoActivo}/canvas`, {
             contenidoCanvas,
           }, 'PUT');
         } catch (error) {
-          console.error('Error al guardar canvas automáticamente:', error);
+          console.error('Error al guardar canvas:', error);
         }
-      }
-    };
+      }, 500); // Guardar en la BD después de 500ms sin cambios
+    }
+  };
+  
+  emitirCambiosCanvas();
+  
+  // Limpieza del timer cuando el componente se desmonte
+  return () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+  };
+}, [components, socket, chatState.grupoActivo]);
 
-    guardarYEmitirCanvas();
-  }, [components, socket, chatState.grupoActivo]);
 
-  // // 3. Escuchar actualizaciones de otros usuarios
   // useEffect(() => {
-  //   if (!socket || !chatState.grupoActivo) return;
-
-  //   const handleRemoteUpdate = (data) => {
-  //     if (data.groupId === chatState.grupoActivo) {
-  //       actions.setComponents(data.components);
+  //   const guardarYEmitirCanvas = async () => {
+  //     if (socket && chatState.grupoActivo && Array.isArray(components)) {
+  //       const contenidoCanvas = {
+  //         components,
+  //         canvasWidth: 1000,
+  //         canvasHeight: 2000,
+  //       };
+  //       try {
+  //         await fetchConnToken(`grupos/${chatState.grupoActivo}/canvas`, {
+  //           contenidoCanvas,
+  //         }, 'PUT');
+  //       } catch (error) {
+  //         console.error('Error al guardar canvas automáticamente:', error);
+  //       }
   //     }
   //   };
 
-  //   socket.on('canvas:update', handleRemoteUpdate);
+  //   guardarYEmitirCanvas();
+  // }, [components, socket, chatState.grupoActivo]);
 
-  //   return () => {
-  //     socket.off('canvas:update', handleRemoteUpdate);
-  //   };
-  // }, [socket, chatState.grupoActivo, actions]);
 
-  // // 4. Sincronizar el canvas en el chatState (para exportarlo o reutilizarlo)
-  // useEffect(() => {
-  //   if (chatState.grupoActivo && Array.isArray(components)) {
-  //     const contenidoCanvas = {
-  //       components,
-  //       canvasWidth: 1000,
-  //       canvasHeight: 2000,
-  //     };
 
-  //     dispatch({
-  //       type: types.cargarGrupo,
-  //       payload: contenidoCanvas,
-  //     });
-  //   }
-  // }, [components, chatState.grupoActivo, dispatch]);
+   // Para escuchar actualizaciones de otros usuarios
+   useEffect(() => {
+    const escucharCambiosCanvas = () => {
+      if (socket && chatState.grupoActivo) {
+        socket.on('canvas:update', (data) => {
+          // Solo actualizar si es del grupo activo y si los componentes son diferentes
+          if (data.groupId === chatState.grupoActivo) {
+            // Evitar bucles infinitos comparando los componentes
+            const componentsString = JSON.stringify(components);
+            const newComponentsString = JSON.stringify(data.components);
+            
+            if (componentsString !== newComponentsString) {
+              actions.setComponents(data.components);
+            }
+          }
+        });
+      }
+      
+      return () => {
+        // Limpiar listener al desmontar el componente
+        if (socket) {
+          socket.off('canvas:update');
+        }
+      };
+    };
+    
+    return escucharCambiosCanvas();
+  }, [socket, chatState.grupoActivo, actions]);
 
   return null;
 };

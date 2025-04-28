@@ -5,6 +5,7 @@ import { types } from '../types/types'
 import '../styles/bulder.css'
 import { fetchConnToken } from '../helpers/fetch'
 import '../styles/bulder.css'
+import { SocketContext } from '../context/SocketContext'
 
 export const Searchbox = () => {
     const { auth, logout } = useContext(AuthContext);
@@ -13,6 +14,7 @@ export const Searchbox = () => {
     const [showModal, setShowModal] = useState(false);
     const [nombreGrupo, setNombreGrupo] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+      const { socket } = useContext(SocketContext);
     // Abrir modal para crear grupo
     const openNewGroupModal = () => {
         setShowModal(true);
@@ -41,6 +43,9 @@ export const Searchbox = () => {
                      payload: [ resp.grupo, ...chatState.grupos ] // Esto añadiría solo el nuevo grupo
                 });
                 
+                 // Emitir evento al servidor para que notifique a todos los usuarios
+                 socket.emit('crear-grupo', resp.grupo);
+
                 // Cerrar el modal
                 closeModal();
             } else {
@@ -75,7 +80,7 @@ export const Searchbox = () => {
                             className="btn text-danger"
                             onClick={logout}
                         >
-                            Salir
+                            close
                         </button>
                     </div>
                 </div>
